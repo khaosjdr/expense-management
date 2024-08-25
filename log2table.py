@@ -15,14 +15,15 @@ for file_name in os.listdir(amazon_dir):
     data_path = os.path.join(amazon_dir, file_name)
     df = pd.read_csv(data_path)[['注文日', '商品名', '商品小計', '商品URL']]
     df = df[~df['商品小計'].isna()]
+    df.loc[df.index[df['商品名'].str.contains('返金')], '商品小計'] *= -1
     df.rename(columns={
-        '注文日': 'date',
-        '商品名': 'desc',
-        '商品小計': 'JPY',
-        '商品URL': 'memo'
+        '注文日': 'Date',
+        '商品名': 'Description',
+        '商品小計': 'Money',
+        '商品URL': 'Memo'
     }, inplace=True)
-    df['source'] = 'Amazon'
-    df = df[['date', 'source', 'desc', 'JPY', 'memo']]
+    df['Source'] = 'amazon'
+    df = df[['Date', 'Source', 'Description', 'Money', 'Memo']]
     data_rows.extend(df.to_dict(orient='records'))
 
 # read smbc card
@@ -37,14 +38,15 @@ for file_name in os.listdir(smbc_dir):
         splits = line.split(',')
         if not re.match(r'\d{4}/\d{2}/\d{2}', splits[0]):
             continue
-        date, desc, _, _, _, jpy, *_ = splits
-        if 'ＡＭＡＺＯＮ．ＣＯ．ＪＰ' in desc:
+        date, description, _, _, _, money, memo = splits
+        if 'ＡＭＡＺＯＮ．ＣＯ．ＪＰ' in description:
             continue
         data_rows.append({
-            'date': date,
-            'source': 'smbc_card',
-            'desc': desc,
-            'JPY': float(jpy)
+            'Date': date,
+            'Source': 'smbc_card',
+            'Description': description,
+            'Money': float(money),
+            'Memo': memo
         })
 
 # read jre card
@@ -58,21 +60,41 @@ for file_name in os.listdir(jre_dir):
         for splits in reader:
             if not (len(splits) > 0 and re.match(r'\d{4}/\d{2}/\d{2}', splits[0]) and splits[4].replace(',', '').isdigit()):
                 continue
-            date, desc, _, _, jpy, *_ = splits
-            jpy = jpy.replace(',', '')
-            if float(jpy) <= 0:
+            date, description, _, _, money, *_ = splits
+            money = money.replace(',', '')
+            if float(money) <= 0:
                 continue
             data_rows.append({
-                'date': date,
-                'source': 'jre_card',
-                'desc': desc,
-                'JPY': float(jpy)
+                'Date': date,
+                'Source': 'jre_card',
+                'Description': description,
+                'Money': float(money)
             })
 
+# read smbc
+smbc_path = os.path.join(data_dir, 'smbc', 'meisai.csv')
+df = pd.read_csv(smbc_path, encoding='shiftjis')
+df = df[~df['お取り扱い内容'].isin(['ｶ)ﾋﾞﾕ-ｶ-ﾄﾞ', 'ﾐﾂｲｽﾐﾄﾓｶ-ﾄﾞ (ｶ'])]
+df['取引金額'] = df['お引出し'].fillna(0) - df['お預入れ'].fillna(0)
+df['Source'] = 'smbc'
+df = df[['年月日', 'Source', 'お取り扱い内容', '取引金額']]
+df.rename(columns={
+    '年月日': 'Date',
+    'お取り扱い内容': 'Description',
+    '取引金額': 'Money'
+}, inplace=True)
+data_rows.extend(df.to_dict(orient='records'))
+
 data_df = pd.DataFrame(data_rows)
-data_df['date'] = pd.to_datetime(data_df['date'])
-data_df['JPY'] = data_df['JPY'].astype(int)
-data_df = data_df.sort_values(by='date').reset_index(drop=True)
+data_df['Date'] = pd.to_datetime(data_df['Date'])
+data_df['Year'] = data_df['Date'].dt.year
+data_df['Month'] = data_df['Date'].dt.month
+data_df['Day'] = data_df['Date'].dt.day
+data_df['Money'] = data_df['Money'].astype(int)
+data_df = data_df.sort_values(by=['Date', 'Source', 'Money', 'Description']).reset_index(drop=True)
+data_df = data_df[['Year', 'Month', 'Day', 'Source', 'Description', 'Money', 'Memo']]
+
+data_df = data_df[data_df['Year'] == 2024]
 
 os.makedirs('results', exist_ok=True)
-data_df.to_csv(os.path.join('results', 'result.csv'), index=False)
+data_df.to_csv(os.path.join('results', 'result2024.csv'), index=False)
