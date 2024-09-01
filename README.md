@@ -42,6 +42,12 @@
 
 ## 全体の購買ログ作成方法
 
+実行環境を構築する
+
+```text
+pip install -r requirements.txt
+```
+
 以下のコマンドを実行
 
 ```text
