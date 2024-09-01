@@ -95,6 +95,7 @@ data_df = data_df.sort_values(by=['Date', 'Source', 'Money', 'Description']).res
 data_df = data_df[['Year', 'Month', 'Day', 'Source', 'Description', 'Money', 'Memo']]
 
 data_df = data_df[data_df['Year'] == 2024]
+data_df.drop_duplicates(inplace=True)
 
 os.makedirs('results', exist_ok=True)
 data_df.to_csv(os.path.join('results', 'result2024.csv'), index=False)
