@@ -29,7 +29,7 @@
 
 | 入力 | 明細確定日 | 明細ダウンロード方法 | 出力ファイル名 |
 | --- | --- | --- | --- |
-| Amazon | 翌月1日 | アマゾン注文履歴フィルタを有効化し、Amazonの注文履歴のフィルタの年と対象月を選択。デジタルとデジタル以外を選択し、予約分と0円は除外。領収書印刷用画面を開きcsvダウンロード | amazon-order_*_yyyy-m.csv |
+| Amazon | 翌月1日 | [アマゾン注文履歴フィルタ](https://chromewebstore.google.com/detail/%E3%82%A2%E3%83%9E%E3%82%BE%E3%83%B3%E6%B3%A8%E6%96%87%E5%B1%A5%E6%AD%B4%E3%83%95%E3%82%A3%E3%83%AB%E3%82%BF/jaikhcpoplnhinlglnkmihfdlbamhgig?hl=ja)を有効化し、Amazonの注文履歴のフィルタの年と対象月を選択。デジタルとデジタル以外を選択し、予約分と0円は除外。領収書印刷用画面を開きcsvダウンロード | amazon-order_*_yyyy-m.csv |
 | JRE Card | 翌月25日※ | Viewカードサイトからログインしてご利用明細照会からcsvダウンロード | ご利用明細_yyyymm.csv |
 | SMBC | 翌月1日 | 三井住友銀行にログイン後、対象の口座を選択し、期間を１か月間に設定して明細ダウンロード | meisai.csv |
 | SMBC Card | 翌月10日 | ログイン後、ご利用明細からcsvダウンロード | yyyymm.csv |
