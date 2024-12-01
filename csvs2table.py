@@ -3,6 +3,7 @@ import re
 import unicodedata
 
 import pandas as pd
+import pdfplumber
 
 # 全角スペースを半角スペースに、全角英数字を半角英数字に変換する関数
 
@@ -18,6 +19,10 @@ def normalize_text(text):
     return text
 
 
+def money_str2int(s):
+    return int(s.replace('￥', '').replace(',', ''))
+
+
 def main(year):
     data_dir = os.path.join(os.path.dirname(__file__), 'data')
 
@@ -26,23 +31,46 @@ def main(year):
     # read amazon
     amazon_dir = os.path.join(data_dir, 'amazon')
     for file_name in os.listdir(amazon_dir):
-        if not file_name.endswith('.csv'):
+        if not file_name.endswith('.pdf'):
             continue
         data_path = os.path.join(amazon_dir, file_name)
-        df = pd.read_csv(data_path)[['注文日', '商品名', '商品小計', '商品URL']]
-        df = df[~df['商品小計'].isna()]
-        df.loc[df.index[df['商品名'].str.contains('返金')], '商品小計'] *= -1
-        df['内容'] = df.apply(
-            lambda row: f'{row["商品名"]}({row["商品URL"]})' if pd.notna(row["商品URL"]) else row["商品名"],
-            axis=1
-        )
-        df = df[['注文日', '内容', '商品小計']]
-        df['参照元'] = 'Amazon'
-        df.rename(columns={
-            '注文日': '日付',
-            '商品小計': '金額'
-        }, inplace=True)
-        data_rows.extend(df.to_dict(orient='records'))
+        with pdfplumber.open(data_path) as pdf:
+            page = pdf.pages[0]
+            lines = page.extract_text().splitlines()
+
+        # 行抽出
+        date_line = lines[lines.index('注文情報')+1]
+        purchase_lines = lines[lines.index('税抜 税込 税込')+1:lines.index('税率 小計 税額 小計')-1]
+
+        # 日付抽出
+        date = date_line.split(' ')[-1]
+
+        # 内容と金額抽出
+        results = []
+        current_group = []
+        for line in purchase_lines:
+            splits = line.split(' ')
+            if '￥' in line and not line.startswith('値引'):
+                if current_group:
+                    results.append(current_group)
+                *words, _, _, _, _, money = splits
+                text = ' '.join(words)
+                money = money_str2int(money)
+                current_group = [text, money]
+            elif '￥' in line:
+                # 値引パターン
+                current_group[1] += money_str2int(splits[-1])
+            elif '￥' not in line:
+                # 内容の改行パターン
+                text = ' '.join(splits)
+                current_group[0] = ' '.join([current_group[0], text])
+
+        # 最後のグループを追加
+        if current_group:
+            results.append(current_group)
+
+        data_rows.extend([{'日付': date, '内容': text, '金額': money, '参照元': 'Amazon'}
+                          for text, money in results])
 
     # read smbc card
     smbc_dir = os.path.join(data_dir, 'smbc_card')
@@ -84,11 +112,13 @@ def main(year):
 
     # マージ
     data_df = pd.DataFrame(data_rows)
-    data_df['日付'] = pd.to_datetime(data_df['日付'])
+    data_df['日付'] = pd.to_datetime(data_df['日付'], format='mixed')
     data_df['金額'] = data_df['金額'].astype(int)
     data_df['内容'] = data_df['内容'].apply(normalize_text)
-    data_df = data_df.sort_values(by=['日付']).reset_index(drop=True)
+    data_df = data_df[['日付', '参照元', '金額', '内容']]
+    data_df = data_df[data_df['金額'] != 0]
     data_df = data_df[data_df['日付'].dt.year == year]
+    data_df = data_df.sort_values(by=['日付']).reset_index(drop=True)
 
     os.makedirs('results', exist_ok=True)
     data_df.to_csv(os.path.join('results', f'result{year}.csv'), index=False)
