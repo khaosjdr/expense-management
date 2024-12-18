@@ -12,10 +12,14 @@ def normalize_text(text):
     # 全角を半角に
     text = text.replace("　", " ")
     text = text.replace("−", "-")
+    # カンマを除外
+    text = text.replace(',', '').replace('、', '')
     # 2つ以上のスペースを1つに
     text = re.sub(r'\s+', ' ', text)
     # 全角英数字を半角英数字に
     text = unicodedata.normalize("NFKC", text)
+    # テキストは30文字以内
+    text = text[:30]
     return text
 
 
@@ -54,7 +58,7 @@ def main(year):
                 if current_group:
                     results.append(current_group)
                 *words, _, _, _, _, money = splits
-                text = ' '.join(words)
+                text = ''.join(words)
                 money = money_str2int(money)
                 current_group = [text, money]
             elif '￥' in line:
@@ -62,8 +66,8 @@ def main(year):
                 current_group[1] += money_str2int(splits[-1])
             elif '￥' not in line:
                 # 内容の改行パターン
-                text = ' '.join(splits)
-                current_group[0] = ' '.join([current_group[0], text])
+                text = ''.join(splits)
+                current_group[0] = ''.join([current_group[0], text])
 
         # 最後のグループを追加
         if current_group:
